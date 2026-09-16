@@ -29,6 +29,6 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.business</string>
 	<key>MNUpdateFeedURL</key>
-	<string></string>
+	<string>https://raw.githubusercontent.com/XKevin-xyz/MeetingNotes/main/updates/latest.json</string>
 </dict>
 </plist>

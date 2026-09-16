@@ -21,7 +21,8 @@ cp "$PROJECT_ROOT/packaging/Info.plist" "$APP_PATH/Contents/Info.plist"
 cp "$PROJECT_ROOT/assets/MeetingNotes-logo.png" "$APP_PATH/Contents/Resources/MeetingNotes-logo.png"
 chmod +x "$APP_PATH/Contents/MacOS/MeetingNotes"
 
-DMG_PATH="$PROJECT_ROOT/dist/MeetingNotes-0.2.0.dmg"
+VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PROJECT_ROOT/packaging/Info.plist")"
+DMG_PATH="$PROJECT_ROOT/dist/MeetingNotes-${VERSION}.dmg"
 STAGING_DIR="$(mktemp -d /private/tmp/meetingnotes-dmg.XXXXXX)"
 trap 'rm -rf "$STAGING_DIR"' EXIT
 cp -R "$APP_PATH" "$STAGING_DIR/MeetingNotes.app"
