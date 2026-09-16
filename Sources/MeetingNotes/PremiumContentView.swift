@@ -5,6 +5,8 @@ struct PremiumContentView: View {
     private enum Route: Hashable {
         case overview
         case meetings
+        case transcripts
+        case audio
     }
 
     @Environment(AppStorageManager.self) private var storage
@@ -23,7 +25,11 @@ struct PremiumContentView: View {
                 case .overview:
                     OverviewScreen()
                 case .meetings:
-                    MeetingsLibraryScreen()
+                    MeetingsLibraryScreen(filter: .all)
+                case .transcripts:
+                    MeetingsLibraryScreen(filter: .transcripts)
+                case .audio:
+                    MeetingsLibraryScreen(filter: .audio)
                 }
             }
             .environment(storage)
@@ -98,7 +104,9 @@ struct PremiumContentView: View {
 
                 Section("Bibliotheek") {
                     Label("Alle transcripties", systemImage: "text.quote")
+                        .tag(Route.transcripts)
                     Label("Audio-opnames", systemImage: "waveform")
+                        .tag(Route.audio)
                 }
             }
             .listStyle(.sidebar)
@@ -109,6 +117,14 @@ struct PremiumContentView: View {
                     openSettings()
                 } label: {
                     Label("Instellingen", systemImage: "gearshape")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+
+                Button {
+                    storage.revealRootInFinder()
+                } label: {
+                    Label("Open bestanden", systemImage: "folder")
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
@@ -242,6 +258,37 @@ private struct RecordingHeroCard: View {
                 .buttonStyle(.borderedProminent)
                 .tint(recorder.isRecording ? .red : .blue)
             }
+
+            if let sessionURL = recorder.latestSessionURL, !recorder.isRecording {
+                Divider()
+                    .padding(.top, 16)
+                HStack(spacing: 9) {
+                    Button {
+                        NSWorkspace.shared.activateFileViewerSelecting([sessionURL])
+                    } label: {
+                        Label("Open opname", systemImage: "folder")
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        Task { await recorder.transcribeLatest(storage: storage) }
+                    } label: {
+                        Label(
+                            recorder.isTranscribing ? "Transcriptie bezig…" : "Transcribeer Nederlands",
+                            systemImage: recorder.isTranscribing ? "hourglass" : "text.quote"
+                        )
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(recorder.isTranscribing)
+
+                    if let transcriptURL = recorder.latestTranscriptURL {
+                        Button("Open transcript") {
+                            NSWorkspace.shared.open(transcriptURL)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
         }
         .padding(26)
         .background {
@@ -315,6 +362,13 @@ private struct EmptyMeetingsCard: View {
 }
 
 private struct MeetingsLibraryScreen: View {
+    enum Filter {
+        case all
+        case transcripts
+        case audio
+    }
+
+    let filter: Filter
     @Environment(AppStorageManager.self) private var storage
     @Environment(RecordingCoordinator.self) private var recorder
     @State private var searchText = ""
@@ -322,8 +376,17 @@ private struct MeetingsLibraryScreen: View {
     @State private var sessionToDelete: MeetingSession?
 
     private var filteredSessions: [MeetingSession] {
-        guard !searchText.isEmpty else { return storage.sessions }
-        return storage.sessions.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
+        let scoped: [MeetingSession]
+        switch filter {
+        case .all:
+            scoped = storage.sessions
+        case .transcripts:
+            scoped = storage.sessions.filter(\.hasTranscript)
+        case .audio:
+            scoped = storage.sessions
+        }
+        guard !searchText.isEmpty else { return scoped }
+        return scoped.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
     }
 
     var body: some View {
@@ -331,9 +394,9 @@ private struct MeetingsLibraryScreen: View {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("Vergaderingen")
+                        Text(title)
                             .font(.largeTitle.weight(.bold))
-                        Text("Alles wat je hebt opgenomen, op één rustige plek.")
+                        Text(subtitle)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -392,6 +455,22 @@ private struct MeetingsLibraryScreen: View {
             try recorder.loadSession(session)
         } catch {
             recorder.setStatus("Vergadering kon niet worden geladen: \(error.localizedDescription)")
+        }
+    }
+
+    private var title: String {
+        switch filter {
+        case .all: return "Vergaderingen"
+        case .transcripts: return "Alle transcripties"
+        case .audio: return "Audio-opnames"
+        }
+    }
+
+    private var subtitle: String {
+        switch filter {
+        case .all: return "Alles wat je hebt opgenomen, op één rustige plek."
+        case .transcripts: return "Alle vergaderingen met een opgeslagen transcriptie."
+        case .audio: return "De originele audio van iedere vergadering."
         }
     }
 }
