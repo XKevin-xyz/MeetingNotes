@@ -374,6 +374,7 @@ private struct MeetingsLibraryScreen: View {
     @State private var searchText = ""
     @State private var sessionToRename: MeetingSession?
     @State private var sessionToDelete: MeetingSession?
+    @State private var selectedSession: MeetingSession?
 
     private var filteredSessions: [MeetingSession] {
         let scoped: [MeetingSession]
@@ -390,7 +391,15 @@ private struct MeetingsLibraryScreen: View {
     }
 
     var body: some View {
-        ScrollView {
+        Group {
+            if let selectedSession {
+                MeetingDetailScreen(session: selectedSession) {
+                    withAnimation(.easeInOut) { self.selectedSession = nil }
+                }
+                .environment(storage)
+                .environment(recorder)
+            } else {
+                ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 5) {
@@ -426,9 +435,11 @@ private struct MeetingsLibraryScreen: View {
             .padding(32)
             .frame(maxWidth: 1050, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
+                }
+            }
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle("Vergaderingen")
+        .navigationTitle(selectedSession?.title ?? title)
         .searchable(text: $searchText, prompt: "Zoek vergaderingen")
         .sheet(item: $sessionToRename) { session in
             RenameMeetingSheet(session: session) { title in
@@ -443,6 +454,7 @@ private struct MeetingsLibraryScreen: View {
                 if let sessionToDelete {
                     storage.deleteSession(sessionToDelete)
                     if recorder.latestSessionURL == sessionToDelete.folderURL { recorder.clearLoadedSession() }
+                    if selectedSession?.id == sessionToDelete.id { selectedSession = nil }
                 }
                 sessionToDelete = nil
             }
@@ -453,6 +465,7 @@ private struct MeetingsLibraryScreen: View {
     private func load(_ session: MeetingSession) {
         do {
             try recorder.loadSession(session)
+            selectedSession = session
         } catch {
             recorder.setStatus("Vergadering kon niet worden geladen: \(error.localizedDescription)")
         }
@@ -472,6 +485,197 @@ private struct MeetingsLibraryScreen: View {
         case .transcripts: return "Alle vergaderingen met een opgeslagen transcriptie."
         case .audio: return "De originele audio van iedere vergadering."
         }
+    }
+}
+
+private struct MeetingDetailScreen: View {
+    let session: MeetingSession
+    let onBack: () -> Void
+    @Environment(AppStorageManager.self) private var storage
+    @Environment(RecordingCoordinator.self) private var recorder
+    @State private var summary: MeetingSummary?
+    @State private var isGeneratingSummary = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                HStack {
+                    Button(action: onBack) {
+                        Label("Terug naar vergaderingen", systemImage: "chevron.left")
+                    }
+                    .buttonStyle(.borderless)
+                    Spacer()
+                    Button("Open in Finder") { storage.reveal(session.folderURL) }
+                        .buttonStyle(.bordered)
+                }
+
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(session.title)
+                        .font(.largeTitle.weight(.bold))
+                    Text(session.date.formatted(.dateTime.weekday(.wide).day().month(.wide).year().hour().minute()))
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 12) {
+                    DetailStat(icon: "waveform", title: "Audio", value: "Beschikbaar", tint: .blue)
+                    DetailStat(icon: "text.quote", title: "Transcriptie", value: session.hasTranscript ? "Beschikbaar" : "Ontbreekt", tint: .purple)
+                    DetailStat(icon: "lock.shield", title: "Verwerking", value: "Lokaal", tint: .green)
+                }
+
+                SummaryCard(summary: summary, isGenerating: isGeneratingSummary) {
+                    guard let transcript = recorder.transcript else { return }
+                    isGeneratingSummary = true
+                    Task {
+                        let result = SummaryService.generate(for: transcript)
+                        withAnimation(.easeInOut(duration: 0.35)) {
+                            summary = result
+                            isGeneratingSummary = false
+                        }
+                    }
+                }
+
+                if let transcript = recorder.transcript {
+                    TranscriptDetailCard(transcript: transcript, storage: storage)
+                } else {
+                    ContentUnavailableView(
+                        "Nog geen transcriptie",
+                        systemImage: "text.badge.xmark",
+                        description: Text("Start eerst een transcriptie om de tekst hier te bekijken.")
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(35)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+                }
+            }
+            .padding(32)
+            .frame(maxWidth: 1050, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .onAppear {
+            if let transcript = recorder.transcript, !transcript.segments.isEmpty {
+                summary = SummaryService.generate(for: transcript)
+            }
+        }
+    }
+}
+
+private struct DetailStat: View {
+    let icon: String
+    let title: String
+    let value: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon).foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.caption).foregroundStyle(.secondary)
+                Text(value).font(.subheadline.weight(.semibold))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(13)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 13))
+    }
+}
+
+private struct SummaryCard: View {
+    let summary: MeetingSummary?
+    let isGenerating: Bool
+    let onGenerate: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack {
+                Label("Samenvatting", systemImage: "sparkles")
+                    .font(.title3.weight(.bold))
+                Spacer()
+                Button {
+                    onGenerate()
+                } label: {
+                    Label(isGenerating ? "Bezig…" : "Samenvatting maken", systemImage: isGenerating ? "hourglass" : "wand.and.stars")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isGenerating || summary == nil)
+            }
+
+            if let summary {
+                Text("Lokale concept-samenvatting")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Text(summary.overview)
+                SummarySection(title: "Belangrijkste punten", icon: "lightbulb", items: summary.highlights)
+                SummarySection(title: "Besluiten", icon: "checkmark.seal", items: summary.decisions)
+                SummarySection(title: "Actiepunten", icon: "checklist", items: summary.actions)
+                SummarySection(title: "Open vragen", icon: "questionmark.circle", items: summary.openQuestions)
+            } else {
+                Text("Maak eerst een transcriptie. Daarna maakt MeetingNotes hier lokaal een eerste concept-samenvatting.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(20)
+        .background(
+            LinearGradient(colors: [Color.purple.opacity(0.13), Color.blue.opacity(0.07)], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 19)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 19).strokeBorder(.purple.opacity(0.16), lineWidth: 1))
+    }
+}
+
+private struct SummarySection: View {
+    let title: String
+    let icon: String
+    let items: [String]
+
+    var body: some View {
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 7) {
+                Label(title, systemImage: icon).font(.subheadline.weight(.semibold))
+                ForEach(items, id: \.self) { item in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Circle().fill(.secondary).frame(width: 4, height: 4)
+                        Text(item).font(.subheadline)
+                    }
+                }
+            }
+            .padding(.top, 3)
+        }
+    }
+}
+
+private struct TranscriptDetailCard: View {
+    let transcript: TranscriptDocument
+    let storage: AppStorageManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack {
+                Label("Transcriptie", systemImage: "text.quote").font(.title3.weight(.bold))
+                Spacer()
+                Text("\(transcript.segments.count) segmenten")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(transcript.segments) { segment in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(formatTimestamp(segment.start))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: 46, alignment: .leading)
+                    Text(storage.displaySpeakerName(for: segment.speaker))
+                        .font(.subheadline.weight(.semibold))
+                        .frame(width: 105, alignment: .leading)
+                    Text(segment.text).textSelection(.enabled)
+                }
+                if segment.id != transcript.segments.last?.id { Divider() }
+            }
+        }
+        .padding(20)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 19))
+    }
+
+    private func formatTimestamp(_ seconds: TimeInterval) -> String {
+        String(format: "%02d:%02d", Int(seconds) / 60, Int(seconds) % 60)
     }
 }
 
