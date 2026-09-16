@@ -1,0 +1,16 @@
+.build/
+.swiftpm/
+xcuserdata/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.app/
+dist/
+*.dmg
+*.DS_Store
+
+# Local meeting data should never enter source control.
+Recordings/
+Transcripts/
+Models/
+Exports/
+.env
