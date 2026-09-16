@@ -8,6 +8,8 @@ struct ContentView: View {
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     @State private var pulse = false
     @State private var speakerToRename: RenameTarget?
+    @State private var sessionToRename: MeetingSession?
+    @State private var sessionToDelete: MeetingSession?
     @State private var showOnboarding = false
 
     var body: some View {
@@ -92,6 +94,21 @@ struct ContentView: View {
                     }
                 }
 
+                if !storage.sessions.isEmpty {
+                    MeetingSessionsView(
+                        sessions: storage.sessions,
+                        onSelect: { session in
+                            do {
+                                try recorder.loadSession(session)
+                            } catch {
+                                recorder.setStatus("Vergadering kon niet worden geladen: \(error.localizedDescription)")
+                            }
+                        },
+                        onRename: { session in sessionToRename = session },
+                        onDelete: { session in sessionToDelete = session }
+                    )
+                }
+
                 if let transcript = recorder.transcript {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
@@ -141,6 +158,32 @@ struct ContentView: View {
                 recorder.renameSpeaker(label: target.label, to: newName, storage: storage)
             }
         }
+        .sheet(item: $sessionToRename) { session in
+            RenameSessionView(session: session) { title in
+                storage.renameSession(session, to: title)
+            }
+        }
+        .confirmationDialog(
+            "Deze vergadering verwijderen?",
+            isPresented: Binding(
+                get: { sessionToDelete != nil },
+                set: { if !$0 { sessionToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Verwijder vergadering", role: .destructive) {
+                if let sessionToDelete {
+                    storage.deleteSession(sessionToDelete)
+                    if recorder.latestSessionURL == sessionToDelete.folderURL {
+                        recorder.clearLoadedSession()
+                    }
+                }
+                sessionToDelete = nil
+            }
+            Button("Annuleer", role: .cancel) { sessionToDelete = nil }
+        } message: {
+            Text("De audio en transcriptiebestanden van deze vergadering worden verwijderd.")
+        }
         .sheet(isPresented: $showOnboarding) {
             OnboardingView {
                 hasSeenOnboarding = true
@@ -163,6 +206,97 @@ struct ContentView: View {
         let minutes = Int(seconds) / 60
         let remaining = Int(seconds) % 60
         return String(format: "%02d:%02d", minutes, remaining)
+    }
+}
+
+private struct MeetingSessionsView: View {
+    let sessions: [MeetingSession]
+    let onSelect: (MeetingSession) -> Void
+    let onRename: (MeetingSession) -> Void
+    let onDelete: (MeetingSession) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Vergaderingen", systemImage: "clock.arrow.circlepath")
+                .font(.headline)
+
+            ForEach(sessions.prefix(5)) { session in
+                HStack(spacing: 10) {
+                    Button {
+                        onSelect(session)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(session.title)
+                                .font(.subheadline.weight(.semibold))
+                                .lineLimit(1)
+                            Text(session.hasTranscript ? "Transcriptie beschikbaar" : "Alleen audio beschikbaar")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer()
+
+                    Menu {
+                        Button("Hernoemen") { onRename(session) }
+                        Button("Open in Finder") {
+                            NSWorkspace.shared.activateFileViewerSelecting([session.folderURL])
+                        }
+                        if session.hasTranscript {
+                            Button("Open transcript") {
+                                NSWorkspace.shared.open(session.transcriptURL)
+                            }
+                        }
+                        Divider()
+                        Button("Verwijderen", role: .destructive) { onDelete(session) }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
+                    }
+                    .menuStyle(.borderlessButton)
+                }
+                .padding(.vertical, 5)
+                if session.id != sessions.prefix(5).last?.id {
+                    Divider()
+                }
+            }
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct RenameSessionView: View {
+    let session: MeetingSession
+    let onSave: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var title: String
+
+    init(session: MeetingSession, onSave: @escaping (String) -> Void) {
+        self.session = session
+        self.onSave = onSave
+        _title = State(initialValue: session.title)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Vergadering hernoemen")
+                .font(.headline)
+            TextField("Naam", text: $title)
+                .textFieldStyle(.roundedBorder)
+            HStack {
+                Spacer()
+                Button("Annuleer") { dismiss() }
+                Button("Opslaan") {
+                    onSave(title)
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .frame(width: 400)
     }
 }
 

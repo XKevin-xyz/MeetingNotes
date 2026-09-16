@@ -1,11 +1,25 @@
 import AppKit
 import Foundation
 
+struct MeetingSession: Identifiable, Hashable, Sendable {
+    let id: String
+    let folderURL: URL
+    var title: String
+    let date: Date
+    let hasTranscript: Bool
+
+    var transcriptURL: URL {
+        folderURL.appendingPathComponent("transcript.md")
+    }
+}
+
 @Observable
 final class AppStorageManager {
     let rootURL: URL
     private let fileManager = FileManager.default
     private let speakerNamesKey = "speakerNames"
+    private let sessionNamesKey = "sessionNames"
+    private(set) var sessions: [MeetingSession] = []
 
     var recordingsURL: URL {
         rootURL.appendingPathComponent("Recordings", isDirectory: true)
@@ -25,6 +39,60 @@ final class AppStorageManager {
                 withIntermediateDirectories: true
             )
         }
+        refreshSessions()
+    }
+
+    func refreshSessions() {
+        let names = UserDefaults.standard.dictionary(forKey: sessionNamesKey) as? [String: String] ?? [:]
+        let urls = (try? fileManager.contentsOfDirectory(
+            at: recordingsURL,
+            includingPropertiesForKeys: [.creationDateKey, .contentModificationDateKey, .isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+
+        sessions = urls.compactMap { url in
+            guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { return nil }
+            let values = try? url.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey])
+            let date = values?.creationDate ?? values?.contentModificationDate ?? .distantPast
+            let id = url.lastPathComponent
+            let transcriptExists = fileManager.fileExists(atPath: url.appendingPathComponent("transcript.md").path)
+            return MeetingSession(
+                id: id,
+                folderURL: url,
+                title: names[id] ?? Self.defaultSessionTitle(for: date),
+                date: date,
+                hasTranscript: transcriptExists
+            )
+        }
+        .sorted { $0.date > $1.date }
+    }
+
+    func renameSession(_ session: MeetingSession, to title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        var names = UserDefaults.standard.dictionary(forKey: sessionNamesKey) as? [String: String] ?? [:]
+        if trimmed.isEmpty || trimmed == Self.defaultSessionTitle(for: session.date) {
+            names.removeValue(forKey: session.id)
+        } else {
+            names[session.id] = trimmed
+        }
+        UserDefaults.standard.set(names, forKey: sessionNamesKey)
+        refreshSessions()
+    }
+
+    func deleteSession(_ session: MeetingSession) {
+        try? fileManager.removeItem(at: session.folderURL)
+        var names = UserDefaults.standard.dictionary(forKey: sessionNamesKey) as? [String: String] ?? [:]
+        names.removeValue(forKey: session.id)
+        UserDefaults.standard.set(names, forKey: sessionNamesKey)
+        refreshSessions()
+    }
+
+    private static func defaultSessionTitle(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "nl_NL")
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return "Vergadering — \(formatter.string(from: date))"
     }
 
     var formattedDataSize: String {
@@ -95,5 +163,7 @@ final class AppStorageManager {
     func deleteAllUserData() {
         try? fileManager.removeItem(at: rootURL)
         try? fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        UserDefaults.standard.removeObject(forKey: sessionNamesKey)
+        refreshSessions()
     }
 }

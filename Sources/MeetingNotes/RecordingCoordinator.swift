@@ -50,6 +50,7 @@ final class RecordingCoordinator {
         isRecording = false
         if let latestSessionURL {
             statusMessage = "Opname opgeslagen in \(latestSessionURL.lastPathComponent). Transcriptie volgt in de volgende module."
+            storage.refreshSessions()
         } else {
             statusMessage = "Opname gestopt. Er is geen sessiemap gevonden."
         }
@@ -82,6 +83,7 @@ final class RecordingCoordinator {
             )
             if let transcript {
                 latestTranscriptURL = try storage.saveTranscript(transcript, in: latestSessionURL)
+                storage.refreshSessions()
             }
             statusMessage = "Transcriptie opgeslagen: \(transcript?.segments.count ?? 0) segmenten."
         } catch {
@@ -95,6 +97,31 @@ final class RecordingCoordinator {
         storage.renameSpeaker(label: label, to: name)
         guard let transcript, let latestSessionURL else { return }
         _ = try? storage.saveTranscript(transcript, in: latestSessionURL)
+    }
+
+    func loadSession(_ session: MeetingSession) throws {
+        let transcriptURL = session.folderURL.appendingPathComponent("transcript.json")
+        guard FileManager.default.fileExists(atPath: transcriptURL.path) else {
+            transcript = nil
+            latestTranscriptURL = nil
+            latestSessionURL = session.folderURL
+            return
+        }
+        transcript = try JSONDecoder().decode(TranscriptDocument.self, from: Data(contentsOf: transcriptURL))
+        latestSessionURL = session.folderURL
+        latestTranscriptURL = session.transcriptURL
+        statusMessage = "Vergadering geladen: \(session.title)"
+    }
+
+    func setStatus(_ message: String) {
+        statusMessage = message
+    }
+
+    func clearLoadedSession() {
+        latestSessionURL = nil
+        latestTranscriptURL = nil
+        transcript = nil
+        statusMessage = "Klaar om microfoon en systeemaudio op te nemen."
     }
 }
 

@@ -29,7 +29,7 @@ De feed-URL staat in `packaging/Info.plist` onder `MNUpdateFeedURL`. Zodra de Gi
 
 ## Status
 
-Vroege scaffold. De huidige release is versie 0.2.0 en bevat de native macOS-shell, opslagbeheer, Finder-link, toestemming-flow, opname, lokale transcriptie, diarization en speaker-namen.
+De huidige release is versie 0.3.0 en bevat de native macOS-shell, opslagbeheer, Finder-link, toestemming-flow, opname, lokale transcriptie, diarization, speaker-namen en een vergaderingen-overzicht.
 
 ## Bouwen
 
