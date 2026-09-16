@@ -7,10 +7,10 @@ struct MeetingNotesApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            PremiumContentView()
                 .environment(storage)
                 .environment(recorder)
-                .frame(minWidth: 720, minHeight: 460)
+                .frame(minWidth: 980, minHeight: 640)
         }
         .windowResizability(.contentSize)
 

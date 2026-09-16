@@ -1,6 +1,6 @@
 {
-  "version": "0.3.0",
-  "build": 3,
-  "downloadURL": "https://github.com/XKevin-xyz/MeetingNotes/releases/download/v0.3.0/MeetingNotes-0.3.0.dmg",
-  "notes": "Nieuw vergaderingen-overzicht met openen, hernoemen en verwijderen van eerdere sessies."
+  "version": "0.4.0",
+  "build": 4,
+  "downloadURL": "https://github.com/XKevin-xyz/MeetingNotes/releases/download/v0.4.0/MeetingNotes-0.4.0.dmg",
+  "notes": "Nieuwe premium macOS-interface met sidebar, dashboard, opname-HUD en vloeiende animaties."
 }

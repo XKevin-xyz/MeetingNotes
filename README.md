@@ -29,7 +29,7 @@ De feed-URL staat in `packaging/Info.plist` onder `MNUpdateFeedURL`. Zodra de Gi
 
 ## Status
 
-De huidige release is versie 0.3.0 en bevat de native macOS-shell, opslagbeheer, Finder-link, toestemming-flow, opname, lokale transcriptie, diarization, speaker-namen en een vergaderingen-overzicht.
+De huidige release is versie 0.4.0 en bevat de native macOS-shell, opslagbeheer, Finder-link, toestemming-flow, opname, lokale transcriptie, diarization, speaker-namen, een vergaderingen-overzicht en een premium dashboard-UI.
 
 ## Bouwen
 
