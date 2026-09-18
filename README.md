@@ -17,6 +17,10 @@ De app heeft een ingebouwde updatecontrole. De releasefeed is een klein publiek 
 
 De feed-URL staat in `packaging/Info.plist` onder `MNUpdateFeedURL`. Zodra de GitHub-repository en release-hosting klaar zijn, vullen we daar de echte URL in. Updates worden bewust gedownload en geïnstalleerd; de app vervangt zichzelf niet stilletjes.
 
+## Opname-rechten herstellen
+
+macOS koppelt microfoon- en schermopnamerechten aan een specifieke appkopie. Gebruik daarom steeds dezelfde MeetingNotes.app in `/Applications` en start geen kopie vanuit een DMG, `dist`-map of oude downloadmap. Als macOS om rechten blijft vragen, open in de app de bijbehorende instellingenknop, zet MeetingNotes uit en weer aan, sluit MeetingNotes volledig af en open daarna dezelfde appkopie opnieuw.
+
 ## Ontwerpdoelen
 
 - Werkt onafhankelijk van Google Meet, Teams, Zoom en Discord.

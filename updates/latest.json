@@ -1,6 +1,6 @@
 {
-  "version": "0.5.0",
-  "build": 6,
-  "downloadURL": "https://github.com/XKevin-xyz/MeetingNotes/releases/download/v0.5.0/MeetingNotes-0.5.0.dmg",
-  "notes": "Nieuwe vergaderdetailpagina met transcriptie, lokale concept-samenvatting, besluiten, actiepunten en open vragen."
+  "version": "0.5.1",
+  "build": 7,
+  "downloadURL": "https://github.com/XKevin-xyz/MeetingNotes/releases/download/v0.5.1/MeetingNotes-0.5.1.dmg",
+  "notes": "Betere macOS-permissieflow voor microfoon en schermopname, inclusief directe instellingenknoppen en herstartuitleg."
 }

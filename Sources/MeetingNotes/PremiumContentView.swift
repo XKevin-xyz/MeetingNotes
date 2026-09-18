@@ -259,6 +259,34 @@ private struct RecordingHeroCard: View {
                 .tint(recorder.isRecording ? .red : .blue)
             }
 
+            if let permissionIssue = recorder.permissionIssue {
+                HStack(alignment: .top, spacing: 11) {
+                    Image(systemName: permissionIssue == .captureFailed ? "exclamationmark.triangle.fill" : "lock.shield.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(permissionIssue.title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(permissionIssue.message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button(permissionIssue == .microphone ? "Open microfooninstellingen" : "Open Schermopname-instellingen") {
+                            if permissionIssue == .microphone {
+                                recorder.openMicrophoneSettings()
+                            } else {
+                                recorder.openScreenCaptureSettings()
+                            }
+                        }
+                        .buttonStyle(.link)
+                        .font(.caption.weight(.semibold))
+                    }
+                    Spacer()
+                }
+                .padding(12)
+                .background(.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 13))
+                .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(.orange.opacity(0.22), lineWidth: 1))
+                .padding(.top, 14)
+            }
+
             if let sessionURL = recorder.latestSessionURL, !recorder.isRecording {
                 Divider()
                     .padding(.top, 16)

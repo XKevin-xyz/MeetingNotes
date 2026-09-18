@@ -1,6 +1,37 @@
 import AVFoundation
+import CoreGraphics
 import Foundation
+import AppKit
 import ScreenCaptureKit
+
+enum RecordingPermissionIssue: Equatable {
+    case microphone
+    case screenCapture
+    case restartRequired
+    case captureFailed
+
+    var title: String {
+        switch self {
+        case .microphone: return "Microfoontoegang ontbreekt"
+        case .screenCapture: return "Schermopnametoegang controleren"
+        case .restartRequired: return "MeetingNotes moet opnieuw worden gestart"
+        case .captureFailed: return "Opname kon niet starten"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .microphone:
+            return "Sta microfoontoegang toe voor deze MeetingNotes-appkopie."
+        case .screenCapture:
+            return "Zet MeetingNotes aan bij Systeeminstellingen → Privacy en beveiliging → Schermopname."
+        case .restartRequired:
+            return "macOS heeft de wijziging opgeslagen. Sluit deze app volledig en open daarna dezelfde kopie opnieuw."
+        case .captureFailed:
+            return "Controleer de rechten van precies deze appkopie en probeer daarna opnieuw."
+        }
+    }
+}
 
 @MainActor
 @Observable
@@ -12,6 +43,7 @@ final class RecordingCoordinator {
     private(set) var latestTranscriptURL: URL?
     private(set) var isTranscribing = false
     private(set) var transcriptionStartedAt: Date?
+    private(set) var permissionIssue: RecordingPermissionIssue?
 
     private var captureEngine: AudioCaptureEngine?
     private let transcriptionService = TranscriptionService()
@@ -22,14 +54,15 @@ final class RecordingCoordinator {
             return
         }
 
+        permissionIssue = nil
         let microphoneGranted = await AVCaptureDevice.requestAccess(for: .audio)
         guard microphoneGranted else {
+            permissionIssue = .microphone
             statusMessage = "Microfoontoegang is nodig om je eigen stem op te nemen."
             return
         }
 
-        guard CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess() else {
-            statusMessage = "Scherm- en systeemaudiotoegang is nodig voor audio uit Meet, Teams, Zoom en Discord."
+        guard screenCaptureIsAvailable() else {
             return
         }
 
@@ -40,8 +73,37 @@ final class RecordingCoordinator {
             isRecording = true
             statusMessage = "Opname loopt. Microfoon en systeemaudio worden apart opgeslagen."
         } catch {
+            permissionIssue = .captureFailed
             statusMessage = "Opname kon niet starten: \(error.localizedDescription)"
         }
+    }
+
+    func openScreenCaptureSettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
+        NSWorkspace.shared.open(url)
+    }
+
+    func openMicrophoneSettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
+        NSWorkspace.shared.open(url)
+    }
+
+    private func screenCaptureIsAvailable() -> Bool {
+        if CGPreflightScreenCaptureAccess() {
+            return true
+        }
+
+        let requestResult = CGRequestScreenCaptureAccess()
+        if requestResult && CGPreflightScreenCaptureAccess() {
+            return true
+        }
+
+        permissionIssue = requestResult ? .restartRequired : .screenCapture
+        statusMessage = requestResult
+            ? "Toegang is gewijzigd. Sluit MeetingNotes volledig en open dezelfde app opnieuw."
+            : "Schermopnametoegang is nodig voor systeemaudio uit Meet, Teams, Zoom en Discord."
+        openScreenCaptureSettings()
+        return false
     }
 
     private func stopRecording(storage: AppStorageManager) async {
@@ -122,6 +184,7 @@ final class RecordingCoordinator {
         latestTranscriptURL = nil
         transcript = nil
         statusMessage = "Klaar om microfoon en systeemaudio op te nemen."
+        permissionIssue = nil
     }
 }
 
