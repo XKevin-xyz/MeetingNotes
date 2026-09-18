@@ -1,5 +1,4 @@
 import AVFoundation
-import CoreGraphics
 import Foundation
 import AppKit
 import ScreenCaptureKit
@@ -62,10 +61,6 @@ final class RecordingCoordinator {
             return
         }
 
-        guard screenCaptureIsAvailable() else {
-            return
-        }
-
         do {
             let engine = AudioCaptureEngine(storage: storage)
             try await engine.start()
@@ -74,7 +69,7 @@ final class RecordingCoordinator {
             statusMessage = "Opname loopt. Microfoon en systeemaudio worden apart opgeslagen."
         } catch {
             permissionIssue = .captureFailed
-            statusMessage = "Opname kon niet starten: \(error.localizedDescription)"
+            statusMessage = captureFailureMessage(for: error)
         }
     }
 
@@ -88,22 +83,16 @@ final class RecordingCoordinator {
         NSWorkspace.shared.open(url)
     }
 
-    private func screenCaptureIsAvailable() -> Bool {
-        if CGPreflightScreenCaptureAccess() {
-            return true
+    private func captureFailureMessage(for error: Error) -> String {
+        let description = error.localizedDescription
+        if description.localizedCaseInsensitiveContains("permission") ||
+            description.localizedCaseInsensitiveContains("declined") ||
+            description.localizedCaseInsensitiveContains("not authorized") {
+            permissionIssue = .screenCapture
+            openScreenCaptureSettings()
+            return "ScreenCaptureKit kreeg geen toegang. Controleer de schakelaar voor deze exacte MeetingNotes-app en open dezelfde app daarna opnieuw."
         }
-
-        let requestResult = CGRequestScreenCaptureAccess()
-        if requestResult && CGPreflightScreenCaptureAccess() {
-            return true
-        }
-
-        permissionIssue = requestResult ? .restartRequired : .screenCapture
-        statusMessage = requestResult
-            ? "Toegang is gewijzigd. Sluit MeetingNotes volledig en open dezelfde app opnieuw."
-            : "Schermopnametoegang is nodig voor systeemaudio uit Meet, Teams, Zoom en Discord."
-        openScreenCaptureSettings()
-        return false
+        return "Opname kon niet starten: \(description)"
     }
 
     private func stopRecording(storage: AppStorageManager) async {

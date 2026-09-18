@@ -33,7 +33,7 @@ macOS koppelt microfoon- en schermopnamerechten aan een specifieke appkopie. Geb
 
 ## Status
 
-De huidige release is versie 0.5.0 en bevat de native macOS-shell, opslagbeheer, Finder-link, toestemming-flow, opname, lokale transcriptie, diarization, speaker-namen, een vergaderingen-overzicht, een premium dashboard-UI en lokale concept-samenvattingen.
+De huidige release is versie 0.5.2 en bevat de native macOS-shell, opslagbeheer, Finder-link, toestemming-flow, opname, lokale transcriptie, diarization, speaker-namen, een vergaderingen-overzicht, een premium dashboard-UI, lokale concept-samenvattingen en de verbeterde ScreenCaptureKit-permissieflow.
 
 ## Bouwen
 

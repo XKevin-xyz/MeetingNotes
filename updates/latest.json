@@ -1,6 +1,6 @@
 {
-  "version": "0.5.1",
-  "build": 7,
-  "downloadURL": "https://github.com/XKevin-xyz/MeetingNotes/releases/download/v0.5.1/MeetingNotes-0.5.1.dmg",
-  "notes": "Betere macOS-permissieflow voor microfoon en schermopname, inclusief directe instellingenknoppen en herstartuitleg."
+  "version": "0.5.2",
+  "build": 8,
+  "downloadURL": "https://github.com/XKevin-xyz/MeetingNotes/releases/download/v0.5.2/MeetingNotes-0.5.2.dmg",
+  "notes": "ScreenCaptureKit wordt nu rechtstreeks gestart; de app blokkeert niet meer op een onjuiste preflight-status van macOS."
 }
